@@ -1,0 +1,90 @@
+using Microsoft.Analytics.Interfaces;
+using Microsoft.Analytics.Interfaces.Streaming;
+using Microsoft.Analytics.Types.Sql;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+
+namespace CustomExtractors
+{
+    [SqlUserDefinedExtractor(AtomicFileProcessing = false)]
+    public class GenerateCalendar : IExtractor
+    {
+        private readonly Int64 _startYear;
+        private readonly Int64 _endYear;
+        public string _year;
+        public string _month;
+        public string _day;
+        private int _limitDay;
+
+        //This passes the start and end dates into the local private variables
+        public GenerateCalendar(Int64 StartYear, Int64 endYear)
+        {
+            this._startYear = StartYear;
+            this._endYear = endYear;
+        }
+        
+        public override IEnumerable<IRow> Extract(IUnstructuredReader input, IUpdatableRow output)
+        {
+            //Year
+            for (Int64 y = _startYear; y <= _endYear; y += 1)
+            {
+                this._year = y.ToString();
+
+                //Month
+                for (Int64 m = 1; m <= 12; m += 1)
+                {
+
+                    this._month = m.ToString();
+
+                    //Limit the amount of days to cycle through depending on month
+                    this._limitDay = 30;
+                    string[] thirtyOneMonths = { "1", "3", "5", "7", "8", "10", "12" };
+                    if (thirtyOneMonths.Contains(this._month))
+                    {
+                        this._limitDay = 31;
+                    }
+                    else if (this._month == "2")
+                    {
+                        //Need to add in leap year logic
+                        this._limitDay = 28;
+                        int _y = int.Parse(this._year);
+                        if (DateTime.IsLeapYear(_y))
+                        {
+                            this._limitDay = 29;
+                        }
+                    }
+
+                    //Day
+                    for (Int64 d = 1; d <= this._limitDay; d += 1)
+                    {
+
+                        this._day = d.ToString();
+
+                        this._day = this._day.PadLeft(2, '0');
+                        this._month = this._month.PadLeft(2, '0');
+
+                        string _startPeriod = this._startYear + "01" + "01";
+
+                        string _currentPeriod = this._year + this._month + this._day;
+
+                        Int64 _loopPeriod = Int64.Parse(_currentPeriod);
+
+                        output.Set<Int64>(0, _loopPeriod);
+
+                        yield return output.AsReadOnly();
+
+                    }
+
+                }
+
+
+            }
+            yield break;
+        }
+
+
+    }
+}
